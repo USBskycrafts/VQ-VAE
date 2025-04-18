@@ -64,6 +64,7 @@ class BraTS2021Dataset:
             vmin, vmax = self.normalize_params[sample_idx][mod]
             # normalize to [-1, 1]
             img_slice = (img_slice - vmin) / (vmax - vmin) * 2 - 1
+            img_slice = np.clip(img_slice, -1, 1)
             img_slice = img_slice.astype(np.float32)
 
             modalities.append(img_slice)

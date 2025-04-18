@@ -18,6 +18,7 @@ class VQVAE(pl.LightningModule):
                  learning_rate: float = 1e-4):
         super().__init__()
         self.save_hyperparameters()
+        self.automatic_optimization = False
 
         self.encoder = Encoder(**backbone_config)
         self.decoder = Decoder(**backbone_config)
@@ -38,33 +39,45 @@ class VQVAE(pl.LightningModule):
 
         return q_loss, x_recon, perplexity, *others
 
-    def training_step(self, batch, batch_idx: int, optimizer_idx: int):
+    def training_step(self, batch):
         x, y = batch
         x = x.to(self.device)  # 确保输入在正确的设备上
-        y = y.to(self.device)  # 确保目标在正确的设备上
-        assert x.shape == y.shape, f"Input and target shapes mismatch: {x.shape} != {y.shape}"
+        y = y.to(self.device)  # 确保目标在正确的设备上'
+
+        optimizers = self.optimizers()
+        if isinstance(optimizers, list):
+            g_optim, d_optim = optimizers
+        else:
+            raise RuntimeError('optimzier configuration error')
         qloss, xrec, perplexity, *_ = self(x)
 
-        if optimizer_idx == 0:
-            # autoencode
-            aeloss, log_dict_ae = self.loss(qloss, x, xrec, optimizer_idx, self.global_step,
+        # autoencode
+        self.toggle_optimizer(g_optim)
+        g_optim.zero_grad()
+        aeloss, log_dict_ae = self.loss(qloss, x, xrec, 0, self.global_step,
+                                        last_layer=self._get_last_layer(), split="train")
+
+        self.log("train/aeloss", aeloss, prog_bar=True,
+                 logger=True, on_step=True, on_epoch=True)
+        self.log_dict(log_dict_ae, prog_bar=False,
+                      logger=True, on_step=True, on_epoch=True)
+        self.manual_backward(aeloss)
+        g_optim.step()
+        self.untoggle_optimizer(g_optim)
+
+        # discriminator
+        qloss, xrec, perplexity, *_ = self(x)
+        self.toggle_optimizer(d_optim)
+        d_optim.zero_grad()
+        discloss, log_dict_disc = self.loss(qloss, x, xrec, 1, self.global_step,
                                             last_layer=self._get_last_layer(), split="train")
-
-            self.log("train/aeloss", aeloss, prog_bar=True,
-                     logger=True, on_step=True, on_epoch=True)
-            self.log_dict(log_dict_ae, prog_bar=False,
-                          logger=True, on_step=True, on_epoch=True)
-            return aeloss
-
-        if optimizer_idx == 1:
-            # discriminator
-            discloss, log_dict_disc = self.loss(qloss, x, xrec, optimizer_idx, self.global_step,
-                                                last_layer=self._get_last_layer(), split="train")
-            self.log("train/discloss", discloss, prog_bar=True,
-                     logger=True, on_step=True, on_epoch=True)
-            self.log_dict(log_dict_disc, prog_bar=False,
-                          logger=True, on_step=True, on_epoch=True)
-            return discloss
+        self.log("train/discloss", discloss, prog_bar=True,
+                 logger=True, on_step=True, on_epoch=True)
+        self.log_dict(log_dict_disc, prog_bar=False,
+                      logger=True, on_step=True, on_epoch=True)
+        self.manual_backward(discloss)
+        d_optim.step()
+        self.untoggle_optimizer(d_optim)
 
     def validation_step(self, batch, batch_idx):
         x, y = batch
