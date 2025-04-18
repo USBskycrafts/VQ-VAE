@@ -1,0 +1,4 @@
+.vscode
+config/local*
+.DS_Store
+**/__pycache__/
