@@ -2,9 +2,11 @@ from typing import Any, Dict, List, Tuple
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
-
-
+from pytorch_lightning.loggers import TensorBoardLogger
+from torchvision.utils import make_grid
 from autoencoder.utils import load_instance
+from torchmetrics.image import (PeakSignalNoiseRatio as PSNR,
+                                StructuralSimilarityIndexMeasure as SSIM)
 from autoencoder.kernel.modules import Encoder, Decoder, VectorQuantizer
 
 
@@ -96,6 +98,28 @@ class VQVAE(pl.LightningModule):
         self.log("val/perplexity", perplexity, sync_dist=True)
         self.log_dict(log_dict_ae, sync_dist=True)
         self.log_dict(log_dict_disc, sync_dist=True)
+        if isinstance(self.logger, TensorBoardLogger):
+            with torch.no_grad():
+                xrec = xrec.view(-1, 1, xrec.shape[-2], xrec.shape[-1])
+                y = y.view(-1, 1, y.shape[-2], y.shape[-1])
+                output_grid = make_grid(
+                    xrec, nrow=8, normalize=True, scale_each=True)
+                gt_grid = make_grid(y, nrow=8, normalize=True, scale_each=True)
+                self.logger.experiment.add_image("val/reconstruction",
+                                                 output_grid, self.global_step)
+                self.logger.experiment.add_image("val/gt",
+                                                 gt_grid, self.global_step)
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch
+        x = x.to(self.device)
+        y = y.to(self.device)
+        qloss, xrec, perplexity, *_ = self(x)
+        psnr = PSNR(y.max() - y.min())(xrec, y)
+        ssim = SSIM()(xrec, y)
+
+        self.log('test/PSNR', psnr, sync_dist=True)
+        self.log('test/SSIM', ssim, sync_dist=True)
 
     def configure_optimizers(self):
         lr = self.learning_rate

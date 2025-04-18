@@ -56,10 +56,11 @@ trainer:
     target: pytorch_lightning.callbacks.ModelCheckpoint
     params:
       dirpath: /path/to/checkpoints/ # Update this path to your desired checkpoint directory
-      filename: best-checkpoint-{epoch:02d}-{aeloss:.2f}
-      monitor: aeloss
+      filename: best-checkpoint-epoch{epoch:02d}-aeloss{train/aeloss:.2f}
+      monitor: train/aeloss
       mode: min
       save_top_k: 5
+      auto_insert_metric_name: False
   logger:
     target: pytorch_lightning.loggers.TensorBoardLogger
     params:
