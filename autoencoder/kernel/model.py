@@ -93,7 +93,7 @@ class VQVAE(pl.LightningModule):
                                    lr=lr)
         opt_disc = torch.optim.AdamW(self.loss.parameters(),
                                      lr=lr)
-        return [opt_ae, opt_disc]
+        return [opt_ae, opt_disc], []
 
     # -------------------------------------------------------------------
     # inner dirty work
