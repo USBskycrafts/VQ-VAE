@@ -17,7 +17,6 @@ class VQVAE(pl.LightningModule):
                  ignore_keys=[],
                  learning_rate: float = 1e-4):
         super().__init__()
-        self.automatic_optimization = False  # 禁用自动优化
         self.save_hyperparameters()
 
         self.encoder = Encoder(**backbone_config)
