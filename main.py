@@ -34,6 +34,10 @@ def main():
     model = load_instance(config['model'])
     dataset = Dataset(config['dataset'])
 
+    if args.resume:
+        model = VQVAE.load_from_checkpoint(args.resume, map_location='cpu')
+        print(f"Model loaded from checkpoint: {args.resume}")
+
     # create trainer
     trainer = Trainer(
         logger=load_instance(config['trainer']['logger']),
@@ -41,10 +45,6 @@ def main():
         max_epochs=config['trainer']['max_epochs'],
         precision='16-mixed'
     )
-
-    if args.resume:
-        model = VQVAE.load_from_checkpoint(args.resume)
-        model.eval()
 
     if not args.test_only:
         # train the model
