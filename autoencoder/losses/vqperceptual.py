@@ -20,7 +20,7 @@ class VQLPIPSWithDiscriminator(nn.Module):
         assert disc_loss in ["hinge", "vanilla"]
         self.codebook_weight = codebook_weight
         self.pixel_weight = pixelloss_weight
-        self.perceptual_loss = LPIPS(net='alex', pretrained=True)
+        self.perceptual_loss = nn.L1Loss()
         self.perceptual_weight = perceptual_weight
 
         self.discriminator = NLayerDiscriminator(input_nc=disc_in_channels,

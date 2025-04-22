@@ -115,11 +115,11 @@ class VQVAE(pl.LightningModule):
         x = x.to(self.device)
         y = y.to(self.device)
         qloss, xrec, perplexity, *_ = self(x)
-        psnr = PSNR(y.max() - y.min())(xrec, y)
-        ssim = SSIM()(xrec, y)
+        psnr = PSNR(y.max() - y.min()).device(self.device)
+        ssim = SSIM().device(self.device)
 
-        self.log('test/PSNR', psnr, sync_dist=True)
-        self.log('test/SSIM', ssim, sync_dist=True)
+        self.log('test/PSNR', psnr(y, xrec), sync_dist=True)
+        self.log('test/SSIM', ssim(y, xrec), sync_dist=True)
 
     def configure_optimizers(self):
         lr = self.learning_rate

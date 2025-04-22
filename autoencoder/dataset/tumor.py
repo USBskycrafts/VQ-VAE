@@ -39,7 +39,8 @@ class BraTS2021Dataset:
 
     def __getitem__(self, idx: int):
         sample_idx = idx // (self.slice_range[1] - self.slice_range[0])
-        range_idx = idx % (self.slice_range[1] - self.slice_range[0])
+        slice_idx = idx % (self.slice_range[1] - self.slice_range[0])
+        slice_idx = self.slice_range[0] + slice_idx
         sample = self.samples[sample_idx]
         modalities = []
         if getattr(self, 'normalize_params', None) is None:
@@ -60,7 +61,7 @@ class BraTS2021Dataset:
                 vmin = np.percentile(data, 0.5)
                 self.normalize_params[sample_idx][mod] = (vmin, vmax)
 
-            img_slice = img.dataobj[:, :, range_idx]
+            img_slice = img.dataobj[:, :, slice_idx]
             vmin, vmax = self.normalize_params[sample_idx][mod]
             # normalize to [-1, 1]
             img_slice = (img_slice - vmin) / (vmax - vmin) * 2 - 1
@@ -75,15 +76,16 @@ class BraTS2021Dataset:
             for mod in self.masked:
                 mask[:, :, mod] = 0
         else:
-            prob = np.random.rand() * 0.75
-            mask = np.random.randn(*modalities.shape)
+            prob = np.random.uniform(0.25, 0.75)
+            mask = np.random.randn(0, 1, (1, 1, modalities.shape[-1]))
             mask = np.where(mask > prob, 1, 0)
 
-        masked_modalites = (modalities * mask).astype(np.float32)
+        # masked_modalites = (modalities * mask).astype(np.float32)
+        masked_modalities = modalities.astype(np.float32)
         ground_truth = modalities.astype(np.float32)
 
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Resize(224),
         ])
-        return transform(masked_modalites), transform(ground_truth)
+        return transform(masked_modalities), transform(ground_truth)
