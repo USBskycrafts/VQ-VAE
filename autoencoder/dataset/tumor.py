@@ -57,8 +57,8 @@ class BraTS2021Dataset:
             img = nifti1.load(mod_path)
             if self.normalize_params[sample_idx].get(mod, None) is None:
                 data = img.get_fdata(dtype=np.float32)
-                vmax = np.percentile(data, 99.5)
-                vmin = np.percentile(data, 0.5)
+                vmax = np.percentile(data, 99.9)
+                vmin = np.percentile(data, 0.1)
                 self.normalize_params[sample_idx][mod] = (vmin, vmax)
 
             img_slice = img.dataobj[:, :, slice_idx]
