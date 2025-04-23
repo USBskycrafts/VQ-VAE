@@ -115,8 +115,8 @@ class VQVAE(pl.LightningModule):
         x = x.to(self.device)
         y = y.to(self.device)
         qloss, xrec, perplexity, *_ = self(x)
-        psnr = PSNR(y.max() - y.min()).device(self.device)
-        ssim = SSIM().device(self.device)
+        psnr = PSNR(y.max() - y.min()).to(self.device)
+        ssim = SSIM().to(self.device)
 
         self.log('test/PSNR', psnr(y, xrec), sync_dist=True)
         self.log('test/SSIM', ssim(y, xrec), sync_dist=True)
