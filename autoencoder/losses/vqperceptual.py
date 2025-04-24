@@ -19,8 +19,9 @@ class VQLPIPSWithDiscriminator(nn.Module):
         super().__init__()
         assert disc_loss in ["hinge", "vanilla"]
         self.codebook_weight = codebook_weight
+        self.pixel_loss = nn.L1Loss()
         self.pixel_weight = pixelloss_weight
-        self.perceptual_loss = nn.L1Loss()
+        self.perceptual_loss = LPIPS()
         self.perceptual_weight = perceptual_weight
 
         self.discriminator = NLayerDiscriminator(input_nc=disc_in_channels,
@@ -65,6 +66,12 @@ class VQLPIPSWithDiscriminator(nn.Module):
             rec_loss = rec_loss + self.perceptual_weight * p_loss
         else:
             p_loss = torch.tensor([0.0])
+        if self.pixel_weight > 0:
+            px_loss = self.pixel_loss(inputs.contiguous(),
+                                      reconstructions.contiguous())
+            rec_loss = rec_loss + self.pixel_weight * px_loss
+        else:
+            px_loss = torch.tensor([0.0])
 
         nll_loss = rec_loss
         # nll_loss = torch.sum(nll_loss) / nll_loss.shape[0]
@@ -99,6 +106,7 @@ class VQLPIPSWithDiscriminator(nn.Module):
                    "{}/nll_loss".format(split): nll_loss.detach().mean(),
                    "{}/rec_loss".format(split): rec_loss.detach().mean(),
                    "{}/p_loss".format(split): p_loss.detach().mean(),
+                   "{}/px_loss".format(split): px_loss.detach().mean(),
                    "{}/d_weight".format(split): d_weight.detach(),
                    "{}/disc_factor".format(split): torch.tensor(disc_factor),
                    "{}/g_loss".format(split): g_loss.detach().mean(),

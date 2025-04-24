@@ -25,18 +25,18 @@ model:
   params:
     backbone_config:
       double_z: False
-      z_channels: 64
+      z_channels: 128
       resolution: 224
       in_channels: 4
       out_ch: 4
-      ch: 128
+      ch: 64
       ch_mult: [1, 1, 2, 2, 4] # num_down = len(ch_mult)-1
       num_res_blocks: 2
       attn_resolutions: [16]
       dropout: 0.0
     quantizer_config:
       n_e: 4096
-      e_dim: 64
+      e_dim: 128
 
     loss_config:
       target: autoencoder.losses.vqperceptual.VQLPIPSWithDiscriminator
@@ -46,6 +46,7 @@ model:
         disc_start: 250001
         disc_weight: 0.8
         codebook_weight: 1.0
+        perceptual_weight: 0.1
     # ckpt_path: ...
     # ignore_keys: ...
     # learning_rate: 1e-4
