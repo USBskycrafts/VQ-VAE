@@ -81,7 +81,6 @@ class BraTS2021Dataset:
             mask = np.where(mask > prob, 1, 0)
 
         masked_modalities = (modalities * mask).astype(np.float32)
-        masked_modalities = modalities.astype(np.float32)
         ground_truth = modalities.astype(np.float32)
 
         transform = transforms.Compose([

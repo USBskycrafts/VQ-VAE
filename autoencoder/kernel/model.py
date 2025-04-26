@@ -100,8 +100,8 @@ class VQVAE(pl.LightningModule):
         self.log_dict(log_dict_disc, sync_dist=True)
         if isinstance(self.logger, TensorBoardLogger):
             with torch.no_grad():
-                xrec = xrec.view(-1, 1, xrec.shape[-2], xrec.shape[-1])
-                y = y.view(-1, 1, y.shape[-2], y.shape[-1])
+                xrec = xrec.view(-1, 1, xrec.shape[-2], xrec.shape[-1]).float()
+                y = y.view(-1, 1, y.shape[-2], y.shape[-1]).float()
                 output_grid = make_grid(
                     xrec, nrow=8, normalize=True, scale_each=True)
                 gt_grid = make_grid(y, nrow=8, normalize=True, scale_each=True)
