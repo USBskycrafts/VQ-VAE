@@ -91,6 +91,13 @@ class VQVAE(pl.LightningModule):
 
         discloss, log_dict_disc = self.loss(qloss, x, xrec, 1, self.global_step,
                                             last_layer=self._get_last_layer(), split="val")
+        psnr = PSNR(y.max() - y.min()).to(self.device)
+        ssim = SSIM().to(self.device)
+
+        self.log('val/PSNR', psnr(y, xrec), sync_dist=True,
+                 on_epoch=True, prog_bar=True)
+        self.log('val/SSIM', ssim(y, xrec), sync_dist=True,
+                 on_epoch=True, prog_bar=True)
         rec_loss = log_dict_ae["val/rec_loss"]
         self.log("val/rec_loss", rec_loss, sync_dist=True)
         self.log("val/aeloss", aeloss, sync_dist=True)
@@ -118,8 +125,8 @@ class VQVAE(pl.LightningModule):
         psnr = PSNR(y.max() - y.min()).to(self.device)
         ssim = SSIM().to(self.device)
 
-        self.log('test/PSNR', psnr(y, xrec), sync_dist=True)
-        self.log('test/SSIM', ssim(y, xrec), sync_dist=True)
+        self.log('test/PSNR', psnr(y, xrec), sync_dist=True, on_epoch=True)
+        self.log('test/SSIM', ssim(y, xrec), sync_dist=True, on_epoch=True)
 
     def configure_optimizers(self):
         lr = self.learning_rate
