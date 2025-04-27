@@ -130,12 +130,12 @@ class VQVAE(pl.LightningModule):
 
     def configure_optimizers(self):
         lr = self.learning_rate
-        opt_ae = torch.optim.AdamW(list(self.encoder.parameters()) +
+        opt_ae = torch.optim.Adam(list(self.encoder.parameters()) +
                                    list(self.decoder.parameters()) +
                                    list(self.quantizer.parameters()),
-                                   lr=lr)
-        opt_disc = torch.optim.AdamW(self.loss.parameters(),
-                                     lr=lr)
+                                   lr=lr, betas=(0.5, 0.9))
+        opt_disc = torch.optim.Adam(self.loss.parameters(),
+                                     lr=lr, betas=(0.5, 0.9))
         return [opt_ae, opt_disc], []
 
     # -------------------------------------------------------------------
