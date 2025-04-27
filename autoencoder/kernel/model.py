@@ -91,7 +91,7 @@ class VQVAE(pl.LightningModule):
 
         discloss, log_dict_disc = self.loss(qloss, x, xrec, 1, self.global_step,
                                             last_layer=self._get_last_layer(), split="val")
-        psnr = PSNR(y.max() - y.min()).to(self.device)
+        psnr = PSNR(data_range=2).to(self.device)
         ssim = SSIM().to(self.device)
 
         self.log('val/PSNR', psnr(y, xrec), sync_dist=True,
