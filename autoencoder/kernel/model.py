@@ -47,11 +47,8 @@ class VQVAE(pl.LightningModule):
         return z_q, min_encoding_indices
 
     def get_image(self, batch: torch.Tensor) -> torch.Tensor:
-        image, *_ = batch
-        image = image.to(self.device)  # 确保输入在正确的设备上
-        choosen_modality = torch.randint(0, image.shape[1], (1,))
-        image = image[:, choosen_modality, :, :]
-        return image
+        x = batch[0].to(self.device)
+        return x.gather(1, torch.randint(x.size(1), (x.size(0), 1, 1, 1), device=x.device).expand(-1, 1, *x.size()[2:]))
 
     def training_step(self, batch):
         x = self.get_image(batch)
