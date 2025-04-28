@@ -56,7 +56,7 @@ class VQVAE(pl.LightningModule):
         # autoencode
         self.toggle_optimizer(g_optim)
         g_optim.zero_grad()
-        aeloss, log_dict_ae = self.loss(qloss, x, xrec, 0, self.global_step,
+        aeloss, log_dict_ae = self.loss(qloss, y, xrec, 0, self.global_step,
                                         last_layer=self._get_last_layer(), split="train")
 
         self.log("train/aeloss", aeloss, prog_bar=True,
@@ -71,7 +71,7 @@ class VQVAE(pl.LightningModule):
         qloss, xrec, perplexity, *_ = self(x)
         self.toggle_optimizer(d_optim)
         d_optim.zero_grad()
-        discloss, log_dict_disc = self.loss(qloss, x, xrec, 1, self.global_step,
+        discloss, log_dict_disc = self.loss(qloss, y, xrec, 1, self.global_step,
                                             last_layer=self._get_last_layer(), split="train")
         self.log("train/discloss", discloss, prog_bar=True,
                  logger=True, on_step=True, on_epoch=True)
@@ -89,7 +89,7 @@ class VQVAE(pl.LightningModule):
         aeloss, log_dict_ae = self.loss(qloss, y, xrec, 0, self.global_step,
                                         last_layer=self._get_last_layer(), split="val")
 
-        discloss, log_dict_disc = self.loss(qloss, x, xrec, 1, self.global_step,
+        discloss, log_dict_disc = self.loss(qloss, y, xrec, 1, self.global_step,
                                             last_layer=self._get_last_layer(), split="val")
         psnr = PSNR(data_range=2).to(self.device)
         ssim = SSIM().to(self.device)
@@ -131,11 +131,11 @@ class VQVAE(pl.LightningModule):
     def configure_optimizers(self):
         lr = self.learning_rate
         opt_ae = torch.optim.Adam(list(self.encoder.parameters()) +
-                                   list(self.decoder.parameters()) +
-                                   list(self.quantizer.parameters()),
-                                   lr=lr, betas=(0.5, 0.9))
+                                  list(self.decoder.parameters()) +
+                                  list(self.quantizer.parameters()),
+                                  lr=lr, betas=(0.5, 0.9))
         opt_disc = torch.optim.Adam(self.loss.parameters(),
-                                     lr=lr, betas=(0.5, 0.9))
+                                    lr=lr, betas=(0.5, 0.9))
         return [opt_ae, opt_disc], []
 
     # -------------------------------------------------------------------
