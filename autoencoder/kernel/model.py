@@ -134,9 +134,9 @@ class VQVAE(pl.LightningModule):
                 output_grid = make_grid(
                     xrec, nrow=8, normalize=True, scale_each=True)
                 gt_grid = make_grid(y, nrow=8, normalize=True, scale_each=True)
-                self.logger.experiment.add_image("val/reconstruction",
+                self.logger.experiment.add_image("test/reconstruction",
                                                  output_grid, batch_idx)
-                self.logger.experiment.add_image("val/gt",
+                self.logger.experiment.add_image("test/gt",
                                                  gt_grid, batch_idx)
 
     def configure_optimizers(self):
