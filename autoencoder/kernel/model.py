@@ -113,9 +113,9 @@ class VQVAE(pl.LightningModule):
                     xrec, nrow=8, normalize=True, scale_each=True)
                 gt_grid = make_grid(y, nrow=8, normalize=True, scale_each=True)
                 self.logger.experiment.add_image("val/reconstruction",
-                                                 output_grid, self.global_step)
+                                                 output_grid, batch_idx)
                 self.logger.experiment.add_image("val/gt",
-                                                 gt_grid, self.global_step)
+                                                 gt_grid, batch_idx)
 
     def test_step(self, batch, batch_idx):
         x, y = batch
@@ -127,6 +127,17 @@ class VQVAE(pl.LightningModule):
 
         self.log('test/PSNR', psnr(y, xrec), sync_dist=True, on_epoch=True)
         self.log('test/SSIM', ssim(y, xrec), sync_dist=True, on_epoch=True)
+        if isinstance(self.logger, TensorBoardLogger):
+            with torch.no_grad():
+                xrec = xrec.view(-1, 1, xrec.shape[-2], xrec.shape[-1]).float()
+                y = y.view(-1, 1, y.shape[-2], y.shape[-1]).float()
+                output_grid = make_grid(
+                    xrec, nrow=8, normalize=True, scale_each=True)
+                gt_grid = make_grid(y, nrow=8, normalize=True, scale_each=True)
+                self.logger.experiment.add_image("val/reconstruction",
+                                                 output_grid, batch_idx)
+                self.logger.experiment.add_image("val/gt",
+                                                 gt_grid, batch_idx)
 
     def configure_optimizers(self):
         lr = self.learning_rate
