@@ -40,11 +40,21 @@ class VQVAE(pl.LightningModule):
         x_recon = self.decoder(z_q)
 
         return q_loss, x_recon, perplexity, *others
+    
+    def encode(self, x: torch.Tensor) -> torch.Tensor:
+        z_e = self.encoder(x)
+        loss, z_q, perplexity, min_encodings, min_encoding_indices = self.quantizer(z_e)
+        return z_q, min_encoding_indices
+
+    def get_image(self, batch: torch.Tensor) -> torch.Tensor:
+        image, *_ = batch
+        image = image.to(self.device)  # 确保输入在正确的设备上
+        choosen_modality = torch.randint(0, image.shape[1], (1,))
+        image = image[:, choosen_modality, :, :]
+        return image
 
     def training_step(self, batch):
-        x, y = batch
-        x = x.to(self.device)  # 确保输入在正确的设备上
-        y = y.to(self.device)  # 确保目标在正确的设备上'
+        x = self.get_image(batch)
 
         optimizers = self.optimizers()
         if isinstance(optimizers, list):
@@ -82,11 +92,10 @@ class VQVAE(pl.LightningModule):
         self.untoggle_optimizer(d_optim)
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
-        x = x.to(self.device)
-        y = y.to(self.device)
+        x = self.get_image(batch)
+        
         qloss, xrec, perplexity, *_ = self(x)
-        aeloss, log_dict_ae = self.loss(qloss, y, xrec, 0, self.global_step,
+        aeloss, log_dict_ae = self.loss(qloss, x, xrec, 0, self.global_step,
                                         last_layer=self._get_last_layer(), split="val")
 
         discloss, log_dict_disc = self.loss(qloss, x, xrec, 1, self.global_step,
@@ -94,9 +103,9 @@ class VQVAE(pl.LightningModule):
         psnr = PSNR(data_range=2).to(self.device)
         ssim = SSIM().to(self.device)
 
-        self.log('val/PSNR', psnr(y, xrec), sync_dist=True,
+        self.log('val/PSNR', psnr(x, xrec), sync_dist=True,
                  on_epoch=True, prog_bar=True)
-        self.log('val/SSIM', ssim(y, xrec), sync_dist=True,
+        self.log('val/SSIM', ssim(x, xrec), sync_dist=True,
                  on_epoch=True, prog_bar=True)
         rec_loss = log_dict_ae["val/rec_loss"]
         self.log("val/rec_loss", rec_loss, sync_dist=True)
@@ -108,25 +117,23 @@ class VQVAE(pl.LightningModule):
         if isinstance(self.logger, TensorBoardLogger):
             with torch.no_grad():
                 xrec = xrec.view(-1, 1, xrec.shape[-2], xrec.shape[-1]).float()
-                y = y.view(-1, 1, y.shape[-2], y.shape[-1]).float()
+                x = x.view(-1, 1, x.shape[-2], x.shape[-1]).float()
                 output_grid = make_grid(
                     xrec, nrow=8, normalize=True, scale_each=True)
-                gt_grid = make_grid(y, nrow=8, normalize=True, scale_each=True)
+                gt_grid = make_grid(x, nrow=8, normalize=True, scale_each=True)
                 self.logger.experiment.add_image("val/reconstruction",
                                                  output_grid, self.global_step)
                 self.logger.experiment.add_image("val/gt",
                                                  gt_grid, self.global_step)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
-        x = x.to(self.device)
-        y = y.to(self.device)
+        x = self.get_image(batch)
         qloss, xrec, perplexity, *_ = self(x)
-        psnr = PSNR(y.max() - y.min()).to(self.device)
+        psnr = PSNR(data_range=2).to(self.device)
         ssim = SSIM().to(self.device)
 
-        self.log('test/PSNR', psnr(y, xrec), sync_dist=True, on_epoch=True)
-        self.log('test/SSIM', ssim(y, xrec), sync_dist=True, on_epoch=True)
+        self.log('test/PSNR', psnr(x, xrec), sync_dist=True, on_epoch=True)
+        self.log('test/SSIM', ssim(x, xrec), sync_dist=True, on_epoch=True)
 
     def configure_optimizers(self):
         lr = self.learning_rate

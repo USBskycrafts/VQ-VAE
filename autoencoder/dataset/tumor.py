@@ -70,21 +70,8 @@ class BraTS2021Dataset:
 
             modalities.append(img_slice)
         modalities = np.stack(modalities, axis=-1)
-
-        if self.masked is not None:
-            mask = np.ones_like(modalities)
-            for mod in self.masked:
-                mask[:, :, mod] = 0
-        else:
-            prob = np.random.uniform(0.25, 0.75)
-            mask = np.random.uniform(0, 1, (1, 1, modalities.shape[-1]))
-            mask = np.where(mask > prob, 1, 0)
-
-        masked_modalities = (modalities * mask).astype(np.float32)
-        ground_truth = modalities.astype(np.float32)
-
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.Resize(224),
         ])
-        return transform(masked_modalities), transform(ground_truth)
+        return transform(modalities), sample.stem, slice_idx
