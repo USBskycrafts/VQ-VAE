@@ -57,8 +57,8 @@ class BraTS2021Dataset:
             img = nifti1.load(mod_path)
             if self.normalize_params[sample_idx].get(mod, None) is None:
                 data = img.get_fdata(dtype=np.float32)
-                vmax = np.percentile(data, 99.9)
-                vmin = np.percentile(data, 0.1)
+                vmax = np.max(data)
+                vmin = np.min(data)
                 self.normalize_params[sample_idx][mod] = (vmin, vmax)
 
             img_slice = img.dataobj[:, :, slice_idx]
@@ -85,6 +85,6 @@ class BraTS2021Dataset:
 
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize(224),
+            transforms.CenterCrop(192),
         ])
         return transform(masked_modalities), transform(ground_truth)
