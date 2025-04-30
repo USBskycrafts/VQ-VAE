@@ -43,6 +43,7 @@ class BraTS2021Dataset:
         slice_idx = self.slice_range[0] + slice_idx
         sample = self.samples[sample_idx]
         modalities = []
+        seg = None
         if getattr(self, 'normalize_params', None) is None:
             self.normalize_params = {}
         if self.normalize_params.get(sample_idx, None) is None:
@@ -55,20 +56,27 @@ class BraTS2021Dataset:
                     f"Modality {mod} for sample {sample} does not exist.")
 
             img = nifti1.load(mod_path)
-            if self.normalize_params[sample_idx].get(mod, None) is None:
-                data = img.get_fdata(dtype=np.float32)
-                vmax = np.max(data)
-                vmin = np.min(data)
-                self.normalize_params[sample_idx][mod] = (vmin, vmax)
+            if 'seg' not in mod:
+                if self.normalize_params[sample_idx].get(mod, None) is None:
+                    data = img.get_fdata(dtype=np.float32)
+                    vmax = np.max(data)
+                    vmin = np.min(data)
+                    self.normalize_params[sample_idx][mod] = (vmin, vmax)
 
-            img_slice = img.dataobj[:, :, slice_idx]
-            vmin, vmax = self.normalize_params[sample_idx][mod]
-            # normalize to [-1, 1]
-            img_slice = (img_slice - vmin) / (vmax - vmin) * 2 - 1
-            img_slice = np.clip(img_slice, -1, 1)
-            img_slice = img_slice.astype(np.float32)
+                img_slice = img.dataobj[:, :, slice_idx]
+                vmin, vmax = self.normalize_params[sample_idx][mod]
+                # normalize to [-1, 1]
+                img_slice = (img_slice - vmin) / (vmax - vmin) * 2 - 1
+                img_slice = np.clip(img_slice, -1, 1)
+                img_slice = img_slice.astype(np.float32)
+                modalities.append(img_slice)
+            else:
+                img_slice = img.dataobj[:, :, slice_idx]
+                img_slice = np.where(img_slice == 4, 3, img_slice)
+                img_slice = np.eye(4)[img_slice]
+                img_slice = img_slice.astype(np.float32)
+                seg = img_slice
 
-            modalities.append(img_slice)
         modalities = np.stack(modalities, axis=-1)
 
         if self.masked is not None:
@@ -87,4 +95,7 @@ class BraTS2021Dataset:
             transforms.ToTensor(),
             transforms.CenterCrop(192),
         ])
-        return transform(masked_modalities), transform(ground_truth)
+        if seg is not None:
+            return transform(masked_modalities), transform(ground_truth), transform(seg)
+        else:
+            return transform(masked_modalities), transform(ground_truth)

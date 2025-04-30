@@ -9,6 +9,7 @@ from torchmetrics.image import (PeakSignalNoiseRatio as PSNR,
                                 StructuralSimilarityIndexMeasure as SSIM)
 from autoencoder.kernel.modules import Encoder, Decoder, VectorQuantizer
 
+from autoencoder.losses.contrast import ContrastiveLoss
 
 class VQVAE(pl.LightningModule):
     def __init__(self, *,
@@ -23,9 +24,11 @@ class VQVAE(pl.LightningModule):
         self.automatic_optimization = False
 
         self.encoder = Encoder(**backbone_config)
+        self.seg_encoder = Encoder(**backbone_config)
         self.decoder = Decoder(**backbone_config)
         self.quantizer = VectorQuantizer(**quantizer_config)
         self.loss = load_instance(loss_config)
+        self.contrast = ContrastiveLoss()
         self.learning_rate = learning_rate
 
         if ckpt_path is not None:
@@ -39,31 +42,38 @@ class VQVAE(pl.LightningModule):
         # Decoder
         x_recon = self.decoder(z_q)
 
-        return q_loss, x_recon, perplexity, *others
+        return q_loss, x_recon, perplexity, z_e, *others
 
     def training_step(self, batch):
-        x, y = batch
+        x, y, seg = batch
         x = x.to(self.device)  # 确保输入在正确的设备上
         y = y.to(self.device)  # 确保目标在正确的设备上'
+        seg = seg.to(self.device)  # 确保分割在正确的设备上
 
         optimizers = self.optimizers()
         if isinstance(optimizers, list):
             g_optim, d_optim = optimizers
         else:
             raise RuntimeError('optimzier configuration error')
-        qloss, xrec, perplexity, *_ = self(x)
+        qloss, xrec, perplexity, z_e, *_ = self(x)
+        seg_z_e = self.seg_encoder(seg)
 
         # autoencode
         self.toggle_optimizer(g_optim)
         g_optim.zero_grad()
         aeloss, log_dict_ae = self.loss(qloss, y, xrec, 0, self.global_step,
                                         last_layer=self._get_last_layer(), split="train")
-
+        # contrastive loss
+        contrast_loss = self.contrast(seg_z_e, z_e) * 0.01
+        
+        total_loss = aeloss + contrast_loss
         self.log("train/aeloss", aeloss, prog_bar=True,
+                 logger=True, on_step=True, on_epoch=True)
+        self.log("train/closs", contrast_loss, prog_bar=True,
                  logger=True, on_step=True, on_epoch=True)
         self.log_dict(log_dict_ae, prog_bar=False,
                       logger=True, on_step=True, on_epoch=True)
-        self.manual_backward(aeloss)
+        self.manual_backward(total_loss)
         g_optim.step()
         self.untoggle_optimizer(g_optim)
 
@@ -73,7 +83,7 @@ class VQVAE(pl.LightningModule):
         d_optim.zero_grad()
         discloss, log_dict_disc = self.loss(qloss, y, xrec, 1, self.global_step,
                                             last_layer=self._get_last_layer(), split="train")
-        self.log("train/discloss", discloss, prog_bar=True,
+        self.log("train/dloss", discloss, prog_bar=False,
                  logger=True, on_step=True, on_epoch=True)
         self.log_dict(log_dict_disc, prog_bar=False,
                       logger=True, on_step=True, on_epoch=True)
@@ -82,7 +92,7 @@ class VQVAE(pl.LightningModule):
         self.untoggle_optimizer(d_optim)
 
     def validation_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, *_ = batch
         x = x.to(self.device)
         y = y.to(self.device)
         qloss, xrec, perplexity, *_ = self(x)
@@ -118,7 +128,7 @@ class VQVAE(pl.LightningModule):
                                                  gt_grid, batch_idx)
 
     def test_step(self, batch, batch_idx):
-        x, y = batch
+        x, y, *_ = batch
         x = x.to(self.device)
         y = y.to(self.device)
         qloss, xrec, perplexity, *_ = self(x)
@@ -141,12 +151,12 @@ class VQVAE(pl.LightningModule):
 
     def configure_optimizers(self):
         lr = self.learning_rate
-        opt_ae = torch.optim.Adam(list(self.encoder.parameters()) +
+        opt_ae = torch.optim.RAdam(list(self.encoder.parameters()) +
                                   list(self.decoder.parameters()) +
                                   list(self.quantizer.parameters()),
-                                  lr=lr, betas=(0.5, 0.9))
-        opt_disc = torch.optim.Adam(self.loss.parameters(),
-                                    lr=lr, betas=(0.5, 0.9))
+                                  lr=lr,)
+        opt_disc = torch.optim.RAdam(self.loss.parameters(),
+                                    lr=lr, )
         return [opt_ae, opt_disc], []
 
     # -------------------------------------------------------------------
