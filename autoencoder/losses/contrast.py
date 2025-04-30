@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
+import numpy as np
 
 class ContrastiveLoss(nn.Module):
-    def __init__(self, scale=1.0):
+    def __init__(self, scale=0.07):
         super(ContrastiveLoss, self).__init__()
         self.cross_entropy_loss = nn.CrossEntropyLoss()
-        self.scale = scale
+        self.scale =nn.Parameter(torch.tensor([np.log(1/scale)]))
 
     def forward(self, seg_features, image_features):
         """
@@ -23,8 +24,8 @@ class ContrastiveLoss(nn.Module):
     def _cal_contrast_loss(self, seg_features, image_features):
         seg_features = seg_features.reshape(-1, seg_features.shape[1], seg_features.shape[2] * seg_features.shape[3])
         image_features = image_features.reshape(-1, image_features.shape[1], image_features.shape[2] * image_features.shape[3])
-        image_features = image_features / torch.norm(image_features, dim=1, keepdim=True)
-        seg_features = seg_features / torch.norm(seg_features, dim=1, keepdim=True) 
+        image_features = image_features / torch.norm(image_features, dim=1, keepdim=True, p=2)
+        seg_features = seg_features / torch.norm(seg_features, dim=1, keepdim=True, p=2)
         
         # [B, H*W, H*W]
         logits_per_image = torch.matmul(image_features.permute(0, 2, 1), seg_features) * self.scale

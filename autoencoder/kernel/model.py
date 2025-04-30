@@ -64,7 +64,7 @@ class VQVAE(pl.LightningModule):
         aeloss, log_dict_ae = self.loss(qloss, y, xrec, 0, self.global_step,
                                         last_layer=self._get_last_layer(), split="train")
         # contrastive loss
-        contrast_loss = self.contrast(seg_z_e, z_e) * 0.01
+        contrast_loss = self.contrast(seg_z_e, z_e) * 0.1
         
         total_loss = aeloss + contrast_loss
         self.log("train/aeloss", aeloss, prog_bar=True,
@@ -153,6 +153,8 @@ class VQVAE(pl.LightningModule):
         lr = self.learning_rate
         opt_ae = torch.optim.RAdam(list(self.encoder.parameters()) +
                                   list(self.decoder.parameters()) +
+                                  list(self.seg_encoder.parameters()) +
+                                  list(self.contrast.parameters()) +
                                   list(self.quantizer.parameters()),
                                   lr=lr,)
         opt_disc = torch.optim.RAdam(self.loss.parameters(),
