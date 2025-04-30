@@ -2,9 +2,12 @@ import importlib
 
 
 def load_instance(config):
-    if not "target" in config:
-        raise KeyError("Expected key `target` to instantiate.")
-    return get_obj_from_str(config["target"])(**config.get("params", dict()))
+    if isinstance(config, list):
+        return [get_obj_from_str(cfg["target"])(**cfg.get("params", dict())) for cfg in config]
+    else:
+        if not "target" in config:
+            raise KeyError("Expected key `target` to instantiate.")
+        return get_obj_from_str(config["target"])(**config.get("params", dict()))
 
 
 def get_obj_from_str(string, reload=False):
