@@ -72,6 +72,6 @@ class BraTS2021Dataset:
         modalities = np.stack(modalities, axis=-1)
         transform = transforms.Compose([
             transforms.ToTensor(),
-            transforms.Resize(224),
+            transforms.CenterCrop(192),
         ])
         return transform(modalities), sample.stem, slice_idx
