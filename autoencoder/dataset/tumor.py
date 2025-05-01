@@ -5,9 +5,12 @@ import nibabel
 import numpy as np
 import numpy.random
 import torchvision.transforms as transforms
-from torchvision.transforms.functional import rotate
+from torchvision.transforms import Lambda
+import torch
 import nibabel
 from nibabel import nifti1
+import torch.nn.functional as F
+import random
 
 
 class BraTS2021Dataset:
@@ -86,5 +89,17 @@ class BraTS2021Dataset:
         transform = transforms.Compose([
             transforms.ToTensor(),
             transforms.CenterCrop(192),
+            AddGaussianNoise(), 
+            transforms.Lambda(lambda x: torch.clamp(x, -1.0, 1.0))
         ])
         return transform(masked_modalities), transform(ground_truth)
+    
+class AddGaussianNoise:
+    def __init__(self, sigma_range=(0, 0.1)):
+        self.sigma_range = sigma_range
+
+    def __call__(self, img):
+        sigma = random.uniform(*self.sigma_range)
+        noise = torch.randn_like(img) * sigma
+        return img + noise
+
